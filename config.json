@@ -1,0 +1,10 @@
+{
+  "qwen_model": "qwen3:8b",
+  "qwen_download_gb": 5.2,
+  "laya_model": "aac6fef/laya-mlx",
+  "laya_revision": "20aed815fc6acde75733882e7ec0e3f28aeb9717",
+  "laya_download_gb": 0.85,
+  "minimum_memory_gib": 16,
+  "minimum_macos_major": 14,
+  "smoke_timeout_seconds": 180
+}

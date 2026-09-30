@@ -1,0 +1,54 @@
+{
+  "repository": "aac6fef/laya-mlx",
+  "source": "convaiinnovations/laya",
+  "source_revision": "c5d78730f3493e4fe16d61507ef4b78eef7318cf",
+  "format": "laya-mlx",
+  "dtype": "float16",
+  "verified_tensors": 206,
+  "files": {
+    "LICENSE": {
+      "bytes": 10173,
+      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9"
+    },
+    "NOTICE": {
+      "bytes": 698,
+      "sha256": "f23ae8ae701f5a43e186182e387aeef00b666daed18a946fc7c9ea827b00a8fa"
+    },
+    "README.md": {
+      "bytes": 3563,
+      "sha256": "d94a299fd5a40fd48a115030ebed0e96ffead905b4fca508d6f874b2763f97ec"
+    },
+    "encoder/config.json": {
+      "bytes": 2083,
+      "sha256": "bf3ab80598fdccf414855a2ce80f22859e4492d06ca8a62ddd1cfb63972f8979"
+    },
+    "mlx_config.json": {
+      "bytes": 290,
+      "sha256": "c022368f128dc9b7f6478a9163c96e0406f1da6a7c6bae660ea8515b016ed7ef"
+    },
+    "model.safetensors": {
+      "bytes": 842609225,
+      "sha256": "b9c07bf14be2fa5c78a9193a3e6d840ac80e89e62fc40f425834c3d8a6eaa3de"
+    },
+    "rl_agent_config.json": {
+      "bytes": 746,
+      "sha256": "d96dc2cb39d6375e030ff48c9957088f3c52668f45c30c56504f4e801ed3ee62"
+    },
+    "tokenizer/tokenizer.json": {
+      "bytes": 3583228,
+      "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+    },
+    "tokenizer/tokenizer_config.json": {
+      "bytes": 308,
+      "sha256": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+    },
+    "validation.json": {
+      "bytes": 18257,
+      "sha256": "adc9a4baac1430b58cd8fdaf7c7587b380d4a91834ba405bbdeeabd9d35b5771"
+    },
+    ".gitattributes": {
+      "bytes": 1519,
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361"
+    }
+  }
+}

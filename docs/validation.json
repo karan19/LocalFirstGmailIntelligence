@@ -1,0 +1,99 @@
+{
+  "environment_ready": true,
+  "checks": [
+    {
+      "name": "Apple Silicon / platform",
+      "passed": true,
+      "detail": "Darwin 26.3.1 / arm64",
+      "action": "Use native arm64 Python on Apple Silicon with macOS 14 or newer."
+    },
+    {
+      "name": "Hardware / memory",
+      "passed": true,
+      "detail": "64.0 GiB total; 16 GiB provisional minimum",
+      "action": "Free memory or use a machine meeting the configured minimum. V0_MIN_MEMORY_GIB overrides the provisional threshold; rerun ./doctor.sh."
+    },
+    {
+      "name": "Python environment",
+      "passed": true,
+      "detail": "/Users/karan/workspace/LocalFirstGmailIntelligence/.venv/bin/python (3.13.12)",
+      "action": "Run ./setup.sh using native Python 3.11 or newer."
+    },
+    {
+      "name": "MLX",
+      "passed": true,
+      "detail": "{\"device\": \"Device(gpu, 0)\"}",
+      "action": ""
+    },
+    {
+      "name": "Laya / Laya-MLX",
+      "passed": true,
+      "detail": "laya-mlx 0.2.0",
+      "action": ""
+    },
+    {
+      "name": "Laya weights",
+      "passed": true,
+      "detail": "/Users/karan/workspace/LocalFirstGmailIntelligence/.models/laya",
+      "action": "Run ./setup.sh and confirm the Laya model download."
+    },
+    {
+      "name": "Ollama executable",
+      "passed": true,
+      "detail": "/usr/local/bin/ollama",
+      "action": "Install Ollama: brew install --cask ollama; then open -a Ollama."
+    },
+    {
+      "name": "Ollama service",
+      "passed": true,
+      "detail": "http://127.0.0.1:11434 is responding",
+      "action": ""
+    },
+    {
+      "name": "Qwen model",
+      "passed": true,
+      "detail": "qwen3:8b",
+      "action": "Run ./setup.sh and confirm the Qwen download."
+    },
+    {
+      "name": "Qwen smoke test",
+      "passed": true,
+      "detail": "Generated 2 tokens: READY",
+      "action": ""
+    },
+    {
+      "name": "Laya smoke test",
+      "passed": true,
+      "detail": "choice=green; probabilities={'red': 0.0046, 'green': 0.9899, 'blue': 0.0055}; peak MLX allocation=870.8 MiB",
+      "action": ""
+    }
+  ],
+  "validated_at": "2026-09-30T22:53:32.496555+00:00",
+  "python_version": "3.13.12",
+  "qwen_model_metadata": {
+    "name": "qwen3:8b",
+    "model": "qwen3:8b",
+    "modified_at": "2026-09-30T15:52:24.346114275-07:00",
+    "size": 5225388164,
+    "digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+    "details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen3",
+      "families": [
+        "qwen3"
+      ],
+      "parameter_size": "8.2B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 40960,
+      "embedding_length": 4096
+    },
+    "capabilities": [
+      "completion",
+      "tools",
+      "thinking"
+    ]
+  },
+  "laya_revision": "20aed815fc6acde75733882e7ec0e3f28aeb9717",
+  "memory_minimum_status": "16 GiB provisional; validation performed on a 64 GiB Mac only"
+}
