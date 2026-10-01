@@ -174,6 +174,10 @@ class Subscriptions:
             if self.run['estimate'] is not None:
                 self.run['remaining_estimate'] = max(0, self.run['estimate'] - self.run['scanned'])
             await gmail.close()
+            try:
+                self.cleanup.intelligence.record_run(self.run, 'backlog' if record else 'discovery')
+            except UserError:
+                self.run['error'] = 'Scan retained, but dashboard summary could not be saved.'
 
     async def inspect(self, gmail, message_id, subscription):
         raw = await gmail.message(message_id, metadata=True)
@@ -337,6 +341,7 @@ class Subscriptions:
                                 detail = 'Moved to Trash; journal update failed. The pending recovery record is retained.'
                             try:
                                 self.cleanup.history.mark(account, [(message['id'], 'trashed')])
+                                self.cleanup.intelligence.action_state(account, message['id'], 'trashed')
                             except UserError:
                                 detail = 'Moved to Trash; review history could not be saved. Recovery is journaled.'
                         message.update(trash_status='succeeded', trash_error=detail)

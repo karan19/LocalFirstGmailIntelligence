@@ -443,3 +443,49 @@ partial writes, legacy migration, durable restart recovery, and independent clea
 controls. See `docs/v3-validation.md` for the current validation record. A live
 unsubscribe requires the user to choose a disposable subscription and explicitly
 confirm that specific action; no real subscription is selected automatically.
+
+## V4 — Dashboard and learning from corrections
+
+Open `http://127.0.0.1:8765/dashboard` for account-separated all-time totals.
+Completed classification sessions, stopped sessions, subscription discovery, and
+backlog scans are counted separately. Reviewed totals deduplicate Gmail message
+IDs; Keep reflects their latest recorded state. Successful Trash/Restore actions
+come from the retained journal, including deliberate repeat cycles. Accepted
+unsubscribe requests are distinct from verified completion. Earlier ephemeral
+scans cannot be reconstructed; the dashboard explains its historical coverage.
+V1 smoke tests and the isolated developer model check are excluded from product
+run totals. Clearing inventory/action history resets the corresponding totals.
+
+**Learning from corrections** is one persistent, per-account switch, initially
+off. Enabling captures explicit Keep/Promotional classifications and allows their
+use as examples. Disabling stops both capture and retrieval, retaining saved
+examples. A confirmed **Clear learned corrections** deletes only that account's
+examples; it leaves metrics, review/action history, and the consent choice intact.
+Legacy V2 feedback is retained separately and never imported into learning.
+
+Examples share the private, Git-ignored `.local/history/reviews.sqlite3` database
+with existing history. Learning stores a parsed sender address, bounded subject,
+List-ID, up to 2,000 characters of normalized text, and the explicit label. URLs
+are redacted; OAuth state and attachments are never passed to the store. Dashboard
+metrics store only message IDs, current buckets, and run summaries, not bodies.
+
+Deterministic local token similarity and sender/List-ID/domain evidence retrieve
+up to three examples from the latest 1,000 account-specific corrections. Sender
+identity alone is insufficient. Relevant memory triggers a local Qwen preference
+review, even outside Laya's ambiguous band; original Laya probabilities remain
+visible. Weak matches, conflicting examples, or model failure yield Needs Review.
+A result shows its prior-example provenance. This changes recommendations only:
+Starred/Important protection, selection, confirmation expiry, account binding,
+and Gmail revalidation continue to govern every write. No training, cloud sync,
+scheduler, or sender rules are added.
+
+Verification:
+
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+npm run build --prefix frontend
+# Optional real-model check: synthetic mail, temporary store, no Gmail access.
+PYTHONPATH=. .venv/bin/python scripts/validate_v4_learning.py
+```
+
+See `docs/v4-validation.md` for the validation record and local acceptance steps.

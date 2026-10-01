@@ -5,6 +5,7 @@ import { ArrowRight, Check, CircleAlert, Inbox, LoaderCircle, LockKeyhole, Mail,
 import { Button } from './components/ui/button'
 import './style.css'
 import Cleanup from './Cleanup'
+import Dashboard from './Dashboard'
 import Subscriptions from './Subscriptions'
 
 type Result = { id:string; sender:string; subject:string; received:number; category:string; probabilities:Record<string,number> }
@@ -20,9 +21,10 @@ function App(){
  useEffect(()=>{if(route==='/results')api('run').then(setRun).catch(e=>setError(e.message))},[route])
  const connect=async()=>{setBusy(true);setError('');try{const data=await api('connect',true);location.assign(data.url)}catch(e){setError((e as Error).message);setBusy(false)}}
  const counts=run.results.reduce<Record<string,number>>((a,r)=>({...a,[r.category]:(a[r.category]||0)+1}),{})
- return <div className="min-h-screen"><header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-7"><a href="/" className="flex items-center gap-3 font-semibold tracking-tight"><span className="rounded-xl bg-emerald-900 p-2 text-white"><Mail size={21}/></span>Local-first <span className="hidden font-normal text-stone-500 sm:inline">/ Gmail Intelligence</span></a><span className="flex items-center gap-2 text-xs text-stone-500"><span className="h-2 w-2 rounded-full bg-emerald-600"/> Local AI · V3</span></header>
- <nav aria-label="Main navigation" className="mx-auto flex max-w-6xl flex-wrap gap-5 px-6 pb-4 text-sm text-emerald-900">{[['/cleanup','Inbox cleanup'],['/subscriptions','Subscriptions'],['/history','Action history / Restore']].map(([path,label])=><a key={path} href={path} aria-current={route===path?'page':undefined} className={route===path?'font-semibold underline underline-offset-4':''} onClick={e=>{e.preventDefault();go(path)}}>{label}</a>)}</nav>
+ return <div className="min-h-screen"><header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-7"><a href="/" className="flex items-center gap-3 font-semibold tracking-tight"><span className="rounded-xl bg-emerald-900 p-2 text-white"><Mail size={21}/></span>Local-first <span className="hidden font-normal text-stone-500 sm:inline">/ Gmail Intelligence</span></a><span className="flex items-center gap-2 text-xs text-stone-500"><span className="h-2 w-2 rounded-full bg-emerald-600"/> Local AI · V4</span></header>
+ <nav aria-label="Main navigation" className="mx-auto flex max-w-6xl flex-wrap gap-5 px-6 pb-4 text-sm text-emerald-900">{[['/dashboard','Dashboard'],['/cleanup','Inbox cleanup'],['/subscriptions','Subscriptions'],['/history','Action history / Restore']].map(([path,label])=><a key={path} href={path} aria-current={route===path?'page':undefined} className={route===path?'font-semibold underline underline-offset-4':''} onClick={e=>{e.preventDefault();go(path)}}>{label}</a>)}</nav>
  <main className="mx-auto max-w-6xl px-6 pb-16"><motion.div key={route} initial={{opacity:0,y:reduced?0:10}} animate={{opacity:1,y:0}} transition={{duration:.25}}>
+ {route==='/dashboard'&&<Dashboard/>}
  {route==='/cleanup'&&<Cleanup/>}
  {route==='/subscriptions'&&<Subscriptions/>}
  {route==='/history'&&<Subscriptions historyView/>}

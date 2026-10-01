@@ -152,9 +152,59 @@ from .subscriptions import Subscriptions
 subscription_service = Subscriptions(app, cleanup_service)
 
 
+async def v4_account():
+    async with subscription_service.connection() as connection:
+        return connection[1]
+
+
+@app.get('/api/v4/dashboard')
+async def dashboard():
+    account = await v4_account()
+    return cleanup_service.intelligence.dashboard(account)
+
+
+@app.get('/api/v4/learning')
+async def learning():
+    account = await v4_account()
+    return {'account': account, **cleanup_service.intelligence.learning(account)}
+
+
+from .cleanup import FeedbackSetting, EraseFeedback
+
+
+class LearningSetting(FeedbackSetting):
+    account: str
+
+
+class ClearLearning(EraseFeedback):
+    account: str
+
+
+@app.post('/api/v4/learning')
+async def set_learning(payload: LearningSetting):
+    if cleanup_service.busy():
+        raise UserError('Wait for the current operation to finish before changing learning.')
+    account = await v4_account()
+    if account.casefold() != payload.account.casefold():
+        raise UserError('Connected account changed. Refresh learning controls before changing consent.')
+    return {'account': account, **cleanup_service.intelligence.set_learning(account, payload.enabled)}
+
+
+@app.post('/api/v4/learning/erase')
+async def clear_learning(payload: ClearLearning):
+    if cleanup_service.busy():
+        raise UserError('Wait for the current operation to finish before clearing learning.')
+    if not payload.confirmed:
+        raise UserError('Confirm clearing learned corrections first.')
+    account = await v4_account()
+    if account.casefold() != payload.account.casefold():
+        raise UserError('Connected account changed. Refresh learning controls before clearing examples.')
+    return {'account': account, **cleanup_service.intelligence.clear_learning(account)}
+
+
 class SPA(StaticFiles):
     async def get_response(self, path, scope):
-        if path in ('', '.', 'connect', 'test', 'results', 'cleanup', 'subscriptions', 'history'):
+        if path in ('', '.', 'connect', 'test', 'results', 'cleanup', 'subscriptions', 'history', 'dashboard'):
             path = 'index.html'
         return await super().get_response(path, scope)
 
