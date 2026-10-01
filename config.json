@@ -6,5 +6,12 @@
   "laya_download_gb": 0.85,
   "minimum_memory_gib": 16,
   "minimum_macos_major": 14,
-  "smoke_timeout_seconds": 180
+  "smoke_timeout_seconds": 180,
+  "cleanup": {
+    "max_messages": 1000,
+    "promo_threshold": 0.85,
+    "keep_threshold": 0.15,
+    "gmail_concurrency": 4,
+    "qwen_timeout_seconds": 120
+  }
 }

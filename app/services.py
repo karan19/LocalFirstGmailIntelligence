@@ -61,8 +61,8 @@ async def token_request(data):
     if response.status_code != 200:
         raise UserError('Google authorization failed or expired. Reconnect Gmail and retry.')
     tokens = response.json()
-    if tokens.get('scope') and set(tokens['scope'].split()) != {SCOPE}:
-        raise UserError('Google returned permissions other than Gmail read-only. Remove this app’s Google authorization and reconnect.')
+    if tokens.get('scope') and not set(tokens['scope'].split()).issubset({SCOPE, 'https://www.googleapis.com/auth/gmail.modify'}):
+        raise UserError('Google returned unexpected permissions. Remove this app’s Google authorization and reconnect.')
     return tokens
 
 

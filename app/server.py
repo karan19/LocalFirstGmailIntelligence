@@ -47,21 +47,24 @@ async def user_error(request, exc):
 async def status():
     try:
         config = client_config()
-        return {'configured': True, 'connected': bool(store.read(config['client_id']))}
+        saved = store.read(config['client_id'])
+        return {'configured': True, 'connected': bool(saved), 'cleanup_permission': bool(saved and MODIFY_SCOPE in saved.get('scope', '').split())}
     except UserError as exc:
         return {'configured': False, 'connected': False, 'error': str(exc)}
 
 
 @app.post('/api/connect')
-async def connect():
+async def connect(cleanup: bool = False):
+    if cleanup_service.busy() or (task and not task.done()):
+        raise UserError('Wait for the current operation to finish before reconnecting.')
     config = client_config()
     state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(64)
     pending.clear()
-    pending[state] = (verifier, time.monotonic(), config)
+    pending[state] = (verifier, time.monotonic(), config, cleanup)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
     return {'url': 'https://accounts.google.com/o/oauth2/v2/auth?' + urlencode({
         'client_id': config['client_id'], 'redirect_uri': ORIGIN + '/oauth/callback',
-        'response_type': 'code', 'scope': SCOPE, 'access_type': 'offline', 'prompt': 'consent',
+        'response_type': 'code', 'scope': MODIFY_SCOPE if cleanup else SCOPE, 'access_type': 'offline', 'prompt': 'consent',
         'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256', 'include_granted_scopes': 'false'})}
 
 
@@ -70,7 +73,9 @@ async def callback(request: Request):
     entry = pending.pop(request.query_params.get('state', ''), None)
     if not entry or time.monotonic() - entry[1] > 600:
         return RedirectResponse('/connect?error=expired')
-    verifier, _, config = entry
+    if cleanup_service.busy() or (task and not task.done()):
+        return RedirectResponse('/connect?error=busy')
+    verifier, _, config, cleanup = entry
     if request.query_params.get('error') or not request.query_params.get('code'):
         return RedirectResponse('/connect?error=denied')
     try:
@@ -78,10 +83,16 @@ async def callback(request: Request):
             'code': request.query_params['code'], 'code_verifier': verifier, 'redirect_uri': ORIGIN + '/oauth/callback'})
         if not tokens.get('refresh_token'):
             raise UserError('Google did not return persistent authorization. Reconnect Gmail.')
+        if not cleanup and tokens.get('scope') and set(tokens['scope'].split()) != {SCOPE}:
+            raise UserError('Read-only permission was not granted.')
+        if cleanup and set(tokens.get('scope', '').split()) != {MODIFY_SCOPE}:
+            raise UserError('Cleanup permission was not granted.')
         store.write(config['client_id'], tokens)
+        cleanup_service.reset()
+        run.update(status='idle', completed=0, total=0, results=[], error=None)
     except Exception:
         return RedirectResponse('/connect?error=authorization')
-    return RedirectResponse('/test')
+    return RedirectResponse('/cleanup' if cleanup else '/test')
 
 
 async def analyze():
@@ -108,6 +119,8 @@ async def analyze():
 @app.post('/api/test')
 async def start_test():
     global task
+    if cleanup_service.busy():
+        raise UserError('Wait for cleanup to finish before starting the small test.')
     if task and not task.done():
         return {'started': False}
     run.update(status='running', completed=0, total=0, results=[], error=None)
@@ -122,16 +135,22 @@ async def current_run():
 
 @app.post('/api/disconnect')
 async def disconnect():
-    if task and not task.done():
+    if cleanup_service.busy() or (task and not task.done()):
         raise UserError('Wait for analysis to finish before disconnecting.')
     store.delete(client_config()['client_id'])
+    cleanup_service.reset()
     run.update(status='idle', completed=0, total=0, results=[], error=None)
     return {'disconnected': True}
 
 
+from .cleanup import Cleanup, MODIFY_SCOPE
+
+cleanup_service = Cleanup(app, store, classifier, client_config, token_request, lambda: bool(task and not task.done()))
+
+
 class SPA(StaticFiles):
     async def get_response(self, path, scope):
-        if path in ('', '.', 'connect', 'test', 'results'):
+        if path in ('', '.', 'connect', 'test', 'results', 'cleanup'):
             path = 'index.html'
         return await super().get_response(path, scope)
 

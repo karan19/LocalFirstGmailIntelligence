@@ -106,9 +106,10 @@ class V1Tests(unittest.TestCase):
         self.assertNotIn('fixture-secret', response.text)
         self.assertNotIn(state, server.pending)
 
-    def test_no_mailbox_write_routes(self):
+    def test_v1_routes_preserved_without_delete_endpoint(self):
         paths = [r.path for r in server.app.routes]
-        self.assertEqual([p for p in paths if p.startswith('/api/')], ['/api/status','/api/connect','/api/test','/api/run','/api/disconnect'])
+        self.assertTrue(set(['/api/status','/api/connect','/api/test','/api/run','/api/disconnect']).issubset(paths))
+        self.assertFalse(any('delete' in p for p in paths))
 
 if __name__ == '__main__':
     unittest.main()
