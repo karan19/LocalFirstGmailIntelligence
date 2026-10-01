@@ -1,0 +1,7 @@
+@import "tailwindcss";
+:root { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#242d28; background:#f7f8f5; font-synthesis:none; text-rendering:optimizeLegibility; }
+body { margin:0; }
+button,a { -webkit-tap-highlight-color:transparent; }
+.panel { border:1px solid #e4e7e0; border-radius:18px; padding:24px; background:white; box-shadow:0 2px 8px #142d1c03; }
+.eyebrow { font-size:11px; letter-spacing:.16em; color:#557362; font-weight:600; }
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:0.01ms!important; transition-duration:0.01ms!important; } }

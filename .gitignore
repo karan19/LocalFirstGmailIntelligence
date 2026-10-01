@@ -2,3 +2,7 @@
 .models/
 __pycache__/
 *.pyc
+.local/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
