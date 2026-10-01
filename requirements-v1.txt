@@ -2,3 +2,5 @@ fastapi==0.142.2
 uvicorn==0.54.0
 httpx==0.28.1
 keyring==25.7.0
+dkimpy==1.1.8
+dnspython==2.8.0

@@ -1,0 +1,17 @@
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=example.org;
+ i=@example.org; q=dns/txt; s=test; t=1790821001; h=from : to : subject
+ : list-id : list-unsubscribe : list-unsubscribe-post;
+ bh=4ZaTcA5Hw1wDz9JAacJJ3H9iri5vyETLRVlXELLL8fE=;
+ b=emM+rA6FJCCpedGixXaku1xao7azcj58qsUCDYISS3flFzhoUppgIOmysc0PE1USAN1+A
+ GDMPTdA1J8Tq74x9vcCqAS/5DKaS8wGr7iB16DfSfEW3Xc58ZJK0nIeq/PTFk7ZfCI5Efss
+ xTXkn/5EQJJtZHTiRPJg+JppY1I8iCg4ZAFFz2g0AeiuSYBoyIhhOgbCIKLm8cEahxrCUzE
+ oMCWBJUdp4uZ90C7auAOIBSH55M2aMRkJcLxC2pu68TyCsko509NbqtjaeEefCwaRFUTf13
+ HISchnS1WYYzMLiDoNR6r1wFnTkfYJzIu3nNqQcSQYoAxYJZc2OXxzNOyXgQ==
+From: Demo List <news@example.org>
+To: test@example.net
+Subject: A synthetic newsletter
+List-ID: Demo <demo.example.org>
+List-Unsubscribe: <https://example.org/unsubscribe/demo>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+
+Synthetic message for signature verification tests.

@@ -143,6 +143,8 @@ class Cleanup:
         self.writing = False
         self.starting = False
         self.history = ReviewHistory()
+        self.journal = None
+        self.external_busy = lambda: False
         self.feedback_enabled = False
         self.feedback_path = ROOT / '.local/feedback/reviews.jsonl'
         self.reset()
@@ -170,7 +172,17 @@ class Cleanup:
         self.confirmations = {}
 
     def busy(self):
-        return self.starting or self.writing or bool(self.task and not self.task.done())
+        return self.starting or self.writing or bool(self.task and not self.task.done()) or self.external_busy()
+
+    def note_restored(self, account, message_id):
+        if self.run['account'] and self.run['account'].casefold() == account.casefold():
+            message = self.messages.get(message_id)
+            if message:
+                message.update(trash_status=None, bucket='keep', source='user_override', user_decision='keep')
+        try:
+            self.history.mark(account, [(message_id, 'restored')])
+        except UserError:
+            pass
 
     async def categories(self, read_status: Literal['all', 'read', 'unread'] = 'all'):
         gmail = await self.authorize()
@@ -437,8 +449,11 @@ class Cleanup:
             if account != self.run['account']:
                 raise UserError('Connected Gmail account changed. Start a new scan before moving messages.')
             semaphore = asyncio.Semaphore(POLICY['gmail_concurrency'])
+            from .journal import Journal
+            journal = self.journal or Journal(self.history.path)
             async def move(message):
                 async with semaphore:
+                    event = None
                     try:
                         raw = await gmail.message(message['id'], metadata=True)
                         labels = set(raw.get('labelIds', []))
@@ -448,10 +463,15 @@ class Cleanup:
                         if 'TRASH' not in labels:
                             if 'INBOX' not in labels or 'SPAM' in labels:
                                 raise UserError('Message is no longer in the Inbox. Scan again.')
+                            event = journal.event(account, 'trash', 'pending', message['id'])
                             await gmail.request('POST', 'messages/' + quote(message['id'], safe='') + '/trash')
+                            try:
+                                journal.finish(event, 'succeeded')
+                            except UserError:
+                                message['history_warning'] = 'Moved to Trash; result journal update failed. The pending recovery record is retained.'
                         message.update(trash_status='trashed', trash_error=None)
                         try:
-                            self.history.mark(self.run['account'], [(message['id'], 'trashed')])
+                            self.history.mark(self.run['account'], [(message['id'], 'trashed' if event else 'reviewed')])
                             message['reviewed'] = True
                         except UserError:
                             message['history_warning'] = 'Moved to Trash, but local review history could not be saved.'
@@ -459,6 +479,11 @@ class Cleanup:
                         message.update(trash_status='failed', trash_error=str(exc))
                     except Exception:
                         message.update(trash_status='failed', trash_error='Could not confirm the Gmail result. Retry this message.')
+                    if message['trash_status'] == 'failed':
+                        try:
+                            journal.event(account, 'trash', 'failed', message['id'], detail=message.get('trash_error', ''))
+                        except UserError:
+                            message['history_warning'] = 'Failure could not be saved in action history.'
                     return {'id': message['id'], 'status': message['trash_status'], 'error': message.get('trash_error')}
             outcomes = await asyncio.gather(*(move(m) for m in messages))
             return {'succeeded': sum(o['status'] == 'trashed' for o in outcomes), 'failed': sum(o['status'] == 'failed' for o in outcomes), 'outcomes': outcomes}

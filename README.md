@@ -1,6 +1,8 @@
 # Local-first Gmail Intelligence
 
-V2 adds local review of up to 1,000 Inbox emails and confirmed Trash actions.
+V3 adds subscription discovery, explicitly confirmed unsubscribe, historical
+cleanup, and durable action history with Restore. V2's local review of up to
+1,000 Inbox emails and confirmed Trash actions remains available.
 The V1 read-only 10-email test remains available (see the sections below).
 V0 proves this computer can run the local model stack. It provides guided CLI setup
 and diagnostics with synthetic smoke-test inputs. The product specification is
@@ -330,3 +332,114 @@ before local review-history exclusion; they are explicitly approximate. An empty
 category shows No matching emails. Missing/failed counts show Count unavailable
 while keeping the scope selectable. Gmail's API does not expose enabled-tab
 configuration. Custom label selection is not included in this picker.
+
+## V3 — Subscriptions, action history, and Restore
+
+V3 adds **Subscriptions** (`/subscriptions`) and **Action history / Restore**
+(`/history`) to the existing local app. Launch with `./start.sh`; existing
+`gmail.modify` authorization is sufficient. No sending or permanent-delete
+features are added, and V2 model thresholds are unchanged.
+
+### Discover and unsubscribe
+
+Choose a scan limit from 1 to 10,000. Discovery reads Inbox and archived messages,
+excluding Spam, Trash, sent mail and drafts, and uses message headers without
+Laya/Qwen. It groups by exact `List-ID`, with exact sender address as the fallback
+when subscription headers provide evidence. Different lists from the same sender
+stay separate. Inventory counts are distinct messages observed across scans, not
+live mailbox totals. The scan reports listed/scanned/skipped counts, completeness,
+and an approximate remaining candidate count when Gmail supplies an estimate.
+Stopping retains the inventory already discovered; rescan to refresh it.
+
+**Keep subscription** persists across restarts and suppresses unsubscribe
+suggestions only. It does not exempt mail from V2's ordinary review flow.
+
+Direct one-click is enabled only after locally verifying an aligned DKIM signature
+covering both `List-Unsubscribe` and `List-Unsubscribe-Post` on the actual raw
+message. Verification temporarily fetches raw message bytes (which may contain
+MIME attachments) and looks up the sender's DKIM public DNS key; raw bytes are
+never stored. Invalid, unavailable or expired signing keys fall back to manual
+unsubscribe. This implementation intentionally supports header-based discovery;
+body-only unsubscribe link extraction is deferred.
+
+After confirmation, the backend revalidates the source message, destination and
+signature, then sends one HTTPS POST with `List-Unsubscribe=One-Click`. It uses no
+browser cookies, Gmail credentials, HTTP authorization, environment proxies or
+redirect following. Destinations must resolve exclusively to public IP addresses;
+the connection is pinned to a validated IP while TLS verifies the original host.
+There is no automatic POST retry after an uncertain network outcome.
+
+HTTP 2xx is displayed as **Request accepted; unsubscribe not verified**. Web and
+mailto paths require manual completion; the app does not crawl forms or send
+unsubscribe email. Explicitly report completion with **I completed unsubscribe**
+or **I completed manual unsubscribe**. Such completion is recorded as user-reported,
+not independently verified.
+
+References: [RFC 8058](https://www.rfc-editor.org/rfc/rfc8058.html).
+
+### Review and clean a subscription backlog
+
+After an accepted request or reported manual completion, use **Review emails**.
+The app discovers candidate IDs and checks each actual `List-ID`, or exact sender
+plus subscription evidence. Archived messages are included. It displays subject,
+sender, date and protected state without fetching bodies for review. The selected
+subscription supplies the review context; Laya/Qwen are not run again.
+
+For sender fallback, **Review broader exact-sender matches** offers an explicit
+separate review, including messages without subscription evidence. This mode
+requires individual message selection, because the sender may also send receipts,
+security messages or other lists. Ordinary subscription matches support selecting
+up to 1,000 eligible messages at a time. Scan completeness and matching counts
+always apply to the requested bounded scan, rather than the entire mailbox.
+
+Review the exact count and confirm before Trash. Confirmation expires after five
+minutes and binds to the account, current scan and exact ordered message IDs.
+Immediately before each write the app verifies current labels, list/sender
+identity and Starred/Important protections again. Partial results include per-message
+outcomes; retry requests a fresh confirmation for eligible failures only.
+
+### History and recovery
+
+Every new V2/V3 Trash write and V3 Restore/one-click request has a durable pending
+journal entry before the external action. Successful results and failures are
+recorded separately. Pending records survive crashes and uncertain Gmail network
+results so recovery can reconcile actual Gmail state. Failure to save the pending
+record prevents that external action; a failure to update the result does not
+turn a successful Gmail write into a failed write.
+
+The recovery view imports legacy V2 records marked `trashed` once per account,
+checks Gmail, and offers selection only for messages currently in Trash. Restore
+requires a separate exact-count confirmation and uses message-level `untrash`.
+It leaves already-restored messages unchanged, handles missing messages separately,
+and supports partial failure/retry. It removes the Trash label and does not promise
+an Inbox destination or recovery after Gmail has removed a message permanently.
+Restored messages remain in local review history and are put in Keep if still
+present in the current V2 session.
+
+Subscriptions, observed IDs, preferences and per-message actions are stored in
+`.local/history/reviews.sqlite3` alongside the existing review table. Accounts use
+separate SHA-256 keys. The directory is 0700 and database 0600, both Git-ignored.
+No bodies, subjects, unsubscribe tokens/URLs or OAuth credentials are persisted
+for V3. Recovery display metadata is fetched into memory on demand.
+
+Separate confirmed controls clear the connected account's inventory/preferences
+or action/restore history. Clearing recovery history loses the app's recovery list;
+it does not change Gmail. Cleared legacy records are not imported again. V2's
+review-history and optional feedback controls retain their separate behavior.
+
+Reference: [Gmail untrash](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/untrash).
+
+### V3 verification
+
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+npm run build --prefix frontend
+```
+
+The V3 tests include real cryptographic DKIM verification using a synthetic signed
+message and public-key fixture, malicious URL/DNS checks, confirmation/account
+binding, exact grouping and matching, stopped/partial scans, protected mail,
+partial writes, legacy migration, durable restart recovery, and independent clear
+controls. See `docs/v3-validation.md` for the current validation record. A live
+unsubscribe requires the user to choose a disposable subscription and explicitly
+confirm that specific action; no real subscription is selected automatically.

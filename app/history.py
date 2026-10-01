@@ -14,7 +14,7 @@ class ReviewHistory:
     @contextmanager
     def database(self):
         try:
-            if self.path.is_symlink() or self.path.parent.is_symlink():
+            if self.path.is_symlink() or self.path.parent.is_symlink() or (ROOT in self.path.parents and (ROOT / '.local').is_symlink()):
                 raise OSError('Unsafe history path')
             self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             self.path.parent.chmod(0o700)

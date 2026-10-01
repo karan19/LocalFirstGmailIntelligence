@@ -89,6 +89,7 @@ async def callback(request: Request):
             raise UserError('Cleanup permission was not granted.')
         store.write(config['client_id'], tokens)
         cleanup_service.reset()
+        subscription_service.reset()
         run.update(status='idle', completed=0, total=0, results=[], error=None)
     except Exception:
         return RedirectResponse('/connect?error=authorization')
@@ -139,6 +140,7 @@ async def disconnect():
         raise UserError('Wait for analysis to finish before disconnecting.')
     store.delete(client_config()['client_id'])
     cleanup_service.reset()
+    subscription_service.reset()
     run.update(status='idle', completed=0, total=0, results=[], error=None)
     return {'disconnected': True}
 
@@ -146,11 +148,13 @@ async def disconnect():
 from .cleanup import Cleanup, MODIFY_SCOPE
 
 cleanup_service = Cleanup(app, store, classifier, client_config, token_request, lambda: bool(task and not task.done()))
+from .subscriptions import Subscriptions
+subscription_service = Subscriptions(app, cleanup_service)
 
 
 class SPA(StaticFiles):
     async def get_response(self, path, scope):
-        if path in ('', '.', 'connect', 'test', 'results', 'cleanup'):
+        if path in ('', '.', 'connect', 'test', 'results', 'cleanup', 'subscriptions', 'history'):
             path = 'index.html'
         return await super().get_response(path, scope)
 
