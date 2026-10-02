@@ -2,7 +2,7 @@
 
 V3 adds subscription discovery, explicitly confirmed unsubscribe, historical
 cleanup, and durable action history with Restore. V2's local review of up to
-1,000 Inbox emails and confirmed Trash actions remains available.
+5,000 Inbox emails and confirmed Trash actions remains available.
 The V1 read-only 10-email test remains available (see the sections below).
 V0 proves this computer can run the local model stack. It provides guided CLI setup
 and diagnostics with synthetic smoke-test inputs. The product specification is
@@ -221,7 +221,7 @@ verification work tracked in the notebook is complete.
 
 ### Review and confirm
 
-1. Click **Scan up to 1,000 emails**. The app paginates Inbox message IDs with a
+1. Click **Scan up to 5,000 emails**. The app paginates Inbox message IDs with a
    maximum of 500 per page and fetches details with at most four concurrent
    requests. Spam, Trash, attachments, and messages that left the Inbox are excluded.
 2. Every fetched message is classified by Laya. Promotional probability ≥0.85
@@ -274,8 +274,8 @@ References: [Gmail Trash operation](https://developers.google.com/workspace/gmai
 Before scanning, select any combination of Primary, Social, Promotions, Updates,
 and Forums; no selection means All Inbox. The categories form an OR filter,
 intersected with Inbox. Gmail's category is a fetch filter, independent of the
-models' promotional decision. Choose 50/100/250/500/1,000 or a custom integer
-from 1 to 1,000. The limit is shared across the selected categories, newest first.
+models' promotional decision. Choose 50/100/250/500/1,000/2,500/5,000 or a custom integer
+from 1 to 5,000. The limit is shared across the selected categories, newest first.
 
 **Only emails I haven't reviewed** is enabled by default. Previously reviewed
 IDs are excluded before fetching bodies and do not consume the requested scan
@@ -457,7 +457,7 @@ V1 smoke tests and the isolated developer model check are excluded from product
 run totals. Clearing inventory/action history resets the corresponding totals.
 
 **Learning from corrections** is one persistent, per-account switch, initially
-off. Enabling captures explicit Keep/Promotional classifications and allows their
+off. Enabling captures explicit Keep/Cleanup classifications and allows their
 use as examples. Disabling stops both capture and retrieval, retaining saved
 examples. A confirmed **Clear learned corrections** deletes only that account's
 examples; it leaves metrics, review/action history, and the consent choice intact.
@@ -472,7 +472,7 @@ metrics store only message IDs, current buckets, and run summaries, not bodies.
 Deterministic local token similarity and sender/List-ID/domain evidence retrieve
 up to three examples from the latest 1,000 account-specific corrections. Sender
 identity alone is insufficient. Relevant memory triggers a local Qwen preference
-review, even outside Laya's ambiguous band; original Laya probabilities remain
+review, even outside Laya's ambiguous band; original Laya Keep/Cleanup probabilities remain
 visible. Weak matches, conflicting examples, or model failure yield Needs Review.
 A result shows its prior-example provenance. This changes recommendations only:
 Starred/Important protection, selection, confirmation expiry, account binding,
@@ -489,3 +489,126 @@ PYTHONPATH=. .venv/bin/python scripts/validate_v4_learning.py
 ```
 
 See `docs/v4-validation.md` for the validation record and local acceptance steps.
+
+## Keep vs Cleanup decisioning
+
+The updated notebook question is: **Is this email something I am realistically
+likely to want or need to come back to later as a durable personal record?**
+
+Keep has a high bar: durable records and meaningful conversations. Routine
+receipts, ride confirmations, account/security/transaction alerts, reminders,
+verification codes, newsletters and easily recoverable content normally belong
+in Cleanup. A financial, legitimate, transactional or informational sender/type
+alone does not establish archive value.
+
+Laya uses compact instructions and described KEEP/CLEANUP/NEEDS_REVIEW choices.
+The complete choice prompt fits its installed 192-token question-head budget;
+long prose beyond that budget would be truncated by the library. A separate local
+value-basis choice detects contradictory judgments. Explicit ambiguity, close
+competing decisions (less than 0.10 score separation), or contradictory value
+rationale yield Needs Review. The old blanket 15–85% routing band is retired.
+Confidence alone does not force review.
+
+Laya returns a decision, a concise criteria-based reason, and its native entropy
+confidence scaled to 0–100. This is an uncalibrated model score, not a measured
+probability of personal usefulness. Laya is a discriminative model and does not
+produce an open-ended generated explanation; the application summarizes the
+selected decision and ambiguity evidence in a sentence. Qwen uses the fuller
+updated guidance and returns decision, reason and numeric 0–100 confidence.
+
+The UI separates final recommendation from original Laya scores and confidence.
+Relevant correction memory still triggers a local Qwen pass. Conflicting memory,
+weak retrieval and call failure retain review. The installed models, history,
+consent choice, and selection/confirmation/Gmail revalidation remain unchanged.
+No automatic mailbox action results from a classification.
+
+Previous correction examples were cleared at the user's earlier request; this
+prompt revision does not clear newly learned examples again. Untagged legacy
+examples remain excluded. The user excluded a 50–100-email evaluation dataset and
+labeling workflow. Contract/regression tests and small local integration checks
+are not claims of real-mailbox classification accuracy.
+
+### Current retention prompt
+
+The user-supplied retention policy now checks current unresolved importance before durable record value, then transient/replaceable content and genuine ambiguity. Laya and Qwen share the full policy in `app/services.py`. Laya uses a 1,024-token question allowance and 1,536-token total sequence (within its 8,192-position encoder capacity), replacing the previous compact 192/512 configuration to avoid truncating the policy. This changes inference context, not model weights. Classification remains a recommendation requiring confirmation for Trash.
+
+### Fetch once, classify independently with Laya or Winnow
+
+The Cleanup UI fetches an Inbox snapshot first without running any classifier or Qwen. After fetching, separate **Classify with Laya** and **Classify with Winnow** controls evaluate that same snapshot on request. Each branch retains its own recommendations and Qwen results. **View Laya results** and **View Winnow results** switch between branch-specific Keep, Cleanup and Needs Review lists. Classification jobs are serialized to avoid competing for local compute; neither branch needs another Gmail fetch.
+
+Keep and Needs Review items have branch-specific **Send to Qwen** controls, individually or for a filtered view up to 1,000 messages. Qwen changes only that branch's final recommendation, preserving the other branch and both original model judgments. Relevant corrections can inform Qwen; failed reviews preserve the existing recommendation. These actions never mark reviewed, capture training examples or perform Gmail actions. Comparison reports independent original model distributions, times and disagreements; it does not merge the recommendations or measure accuracy.
+
+Actual Trash/Restore state is shared across branches. Starred/Important protection, user preferences and confirmation checks remain enforced. A new fetch or service restart clears both temporary branches. The compatibility API still accepts the earlier immediate classification options, but the UI uses fetch-first, independent manual branches.
+
+Winnow uses its native typed-decision server at `127.0.0.1:8091`, separately from the application at port 8765. The model is text-only Q8; no vision projector is needed. The runtime is in ignored `.local/winnow-runtime`, source revision `77d14580c6732ca2f3745750c1dc1fd446d8bcee`. Prerequisites include Xcode command-line tools, CMake and OpenSSL. Its setup downloads approximately 12.67 GB and verifies the release checksum:
+
+```sh
+git clone https://github.com/EldanRing/winnow-inference.git .local/winnow-runtime
+git -C .local/winnow-runtime checkout 77d14580c6732ca2f3745750c1dc1fd446d8bcee
+python3 .local/winnow-runtime/scripts/setup.py --text-only --jobs 8
+./scripts/run_winnow.sh
+```
+
+The launcher uses an 8,192-token context and the native Apple Silicon profile. Until the runtime is healthy, choose Laya; Winnow/comparison scan starts are blocked with a clear message. No hosted API key is needed. Confidence is an entropy-derived distribution concentration score, not a correctness guarantee. The larger model's scan throughput must be measured on the actual Mac.
+
+### Winnow probability routing (latest policy)
+
+Winnow asks a single binary KEEP/CLEANUP question; it no longer asks a separate rationale question or lets a rationale override the score. The original retention instructions are adapted to two model choices. Cleanup probability strictly above 60% routes to Cleanup candidates; strictly below 20% routes to Keep; both boundaries and the intervening band automatically go to Qwen. Local correction retrieval only influences this intermediate review, not direct high/low-score routing. Laya retains its existing independent policy. The UI shows the two primary Winnow buckets and reveals unresolved review/failure or unfinished items only when present. Starred/Important protection and confirmation before Trash remain enforced; threshold routing does not automatically mutate Gmail. Binary probabilities can differ from earlier three-choice scores and are uncalibrated.
+
+## V5 — Mailbox Explorer
+
+Explorer adds Source, Repetition, Purpose, Human Attention and Retention views over a reusable local mailbox index.
+Install `requirements-v5.txt` in the application environment and build the existing
+frontend. The local embedding runtime uses `BAAI/bge-small-en-v1.5` through
+FastEmbed/ONNX on one CPU thread; its first use downloads public model weights.
+It does not use Laya, Winnow, or Qwen for graph construction.
+
+The default scope includes all Gmail folders, including Sent, Drafts, Spam and
+Trash. Inbox and Inbox + Archive scopes, categories, sender, dates and limits are
+available. The default limit is 20,000 and the configured upper bound is 50,000.
+Source and Repetition reuse the same indexed corpus and embeddings. View weights,
+thresholds, bounded neighbor count and clustering engines live in
+`app/explorer_config.json`. Cluster labels and explanations are deterministic.
+Purpose discovers semantic/content groups across senders. Human Attention uses observed automation, list and reply signals. Retention combines provisional subject/list cues with available account-scoped prior cleanup results. These views reuse the same corpus without new model classification. The optional 2D map remains deferred.
+
+Only metadata, subjects, derived terms/template hashes and embeddings persist in
+`.local/explorer/index.sqlite3`, separated by account hash. Raw HTML and full
+bodies are never saved there. Opening a message refetches its body. Index files
+are private (0600), their directory is 0700, and `.local/` is Git-ignored. These
+features can still reveal private information; they are not anonymous data.
+The latest account-specific report survives an application restart.
+
+Review for Cleanup selects Laya or Winnow and refetches up to 5,000 exact cluster
+IDs into the existing cleanup workflow. It excludes Sent, Drafts, Trash and
+unavailable messages, preserves Starred protection, and requires the
+existing preview/confirmation before Trash. Explorer-originated cleanup can
+include Archive or Spam; write-time labels are rechecked. Normal Inbox cleanup
+keeps its original scope rules. History and Restore reuse the existing journal.
+No cluster starts an automatic cleanup action.
+
+`LOCAL_APP_PORT` can select another loopback port. For an isolated inspection
+instance, set `LOCAL_READONLY_PREVIEW=1`: Gmail exploration is available, while
+cleanup handoff, Gmail writes, OAuth changes and shared Keychain token updates
+are disabled. Use separate `WINNOW_LOCAL_URL` and `QWEN_LOCAL_URL` loopback
+endpoints to keep test inference separate from an active service. The live V5
+preview is in a separate worktree; do not rebuild or restart the original
+application while a user run is active.
+
+
+### Additional Explorer views
+
+Purpose uses local embedding similarity and shared terms to discover corpus
+communities. Labels summarize recurring language; the algorithm does not force
+messages into a predefined receipt/newsletter taxonomy. Human Attention groups
+mailing-list, automated, reply-linked and direct-mail signals. It does not infer
+that a person read/replied to a message or that a conversation is meaningful.
+
+Retention displays provisional transient, durable-record, action-related or
+uncertain cues. Available prior cleanup buckets and explicit decisions enter as
+additional graph features, account-bound and limited to selected IDs. They are
+not treated as ground truth or permission to delete. No new Laya/Winnow/Qwen
+calls occur on a view switch. Retention cache keys change when those prior
+results change. Unknown evidence can remain unclustered. Cluster detail explains
+both the evidence and its limits. Subject-derived action cues do not establish
+whether an issue is currently unresolved. Existing cleanup review remains the
+only route to retention decisions and explicit mailbox actions.

@@ -27,6 +27,21 @@ class Intelligence(Journal):
         db.execute('CREATE TABLE IF NOT EXISTS learning_settings (account TEXT PRIMARY KEY,enabled INTEGER)')
         db.execute('CREATE TABLE IF NOT EXISTS corrections (account TEXT,message TEXT,data TEXT,updated REAL,PRIMARY KEY(account,message))')
 
+    def explorer_results(self,account,ids):
+        """Account-bound result features; never retrieve persisted body text."""
+        result={}
+        with self.database() as db:
+            self.initialize(db)
+            for start in range(0,len(ids),500):
+                chunk=ids[start:start+500]
+                if not chunk:continue
+                placeholders=','.join('?' for _ in chunk)
+                for mid,bucket in db.execute('SELECT message,bucket FROM metric_messages WHERE account=? AND message IN ('+placeholders+')',[self.key(account),*chunk]):
+                    if bucket in ('keep','ready','review'):result[mid]=bucket
+                for mid,decision in db.execute('SELECT message,decision FROM reviews WHERE account=? AND message IN ('+placeholders+')',[self.key(account),*chunk]):
+                    if decision in ('keep','cleanup','restored'):result[mid]={'keep':'keep','cleanup':'ready','restored':'keep'}[decision]
+        return result
+
     def learning(self, account):
         with self.database() as db:
             self.initialize(db)
@@ -51,8 +66,10 @@ class Intelligence(Journal):
     def capture(self, account, message, decision):
         if not self.learning(account)['enabled']:
             return
+        if decision not in ('keep', 'cleanup'):
+            raise ValueError('Only explicit Keep/Cleanup labels are learning examples')
         data = {'sender': parseaddr(message['sender'])[1].casefold(), 'subject': clean(message['subject'], 300),
-                'text': clean(message.get('text', ''), 2000), 'list_id': clean(message.get('list_id', ''), 300), 'decision': decision}
+                'text': clean(message.get('text', ''), 2000), 'list_id': clean(message.get('list_id', ''), 300), 'decision': decision, 'taxonomy': 'keep-cleanup-v1'}
         with self.database() as db:
             self.initialize(db)
             db.execute('INSERT OR REPLACE INTO corrections VALUES (?,?,?,?)', (self.key(account), message['id'], json.dumps(data), time.time()))
@@ -67,6 +84,8 @@ class Intelligence(Journal):
         ranked = []
         for message_id, raw in rows:
             example = json.loads(raw)
+            if example.get('taxonomy') != 'keep-cleanup-v1':
+                continue
             subject = overlap(message['subject'], example['subject'])
             body = overlap(clean(message.get('text', ''), 2000), example['text'])
             same_sender = bool(sender and sender == example['sender'])
@@ -119,8 +138,8 @@ class Intelligence(Journal):
                 if message not in recorded and backlog_only and decision in ('trashed', 'restored'):
                     continue
                 if message not in recorded or reviewed > recorded[message][1]:
-                    if decision in ('keep', 'promotional', 'trashed', 'restored'):
-                        states[message] = {'keep': 'keep', 'promotional': 'ready', 'trashed': 'trashed', 'restored': 'keep'}[decision]
+                    if decision in ('keep', 'cleanup', 'promotional', 'trashed', 'restored'):
+                        states[message] = {'keep': 'keep', 'cleanup': 'ready', 'promotional': 'ready', 'trashed': 'trashed', 'restored': 'keep'}[decision]
                     else:
                         states.setdefault(message, 'review')
             actions = {(kind, outcome): count for kind, outcome, count in db.execute('SELECT kind,outcome,COUNT(*) FROM actions WHERE account=? GROUP BY kind,outcome', (key,))}

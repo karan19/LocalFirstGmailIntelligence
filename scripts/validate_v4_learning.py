@@ -14,8 +14,8 @@ async def main():
         cleanup = Cleanup(FastAPI(), Mock(), Classifier(), lambda: {}, AsyncMock(), lambda: False)
         cleanup.history = ReviewHistory(Path(directory)/'reviews.sqlite3')
         account = 'controlled-local-validation@example.test'
-        text = 'Weekly research digest. Subscribe to our premium research newsletter for twenty dollars per month. Upgrade today for exclusive scientific papers, expert analysis, and members-only research reports. This weekly paid research digest is personally valuable to me and I want to keep receiving it.'
-        previous = {'id': 'example-week-one', 'sender': 'Research editor <editor@research.example>', 'subject': 'Weekly premium research digest', 'text': text, 'received': 1, 'protected': [], 'bucket': 'ready', 'source': 'laya_high_promo'}
+        text = 'Weekly research digest. Subscribe to our premium research newsletter for twenty dollars per month. Upgrade today for exclusive scientific papers, expert analysis, and members-only research reports.'
+        previous = {'id': 'example-week-one', 'sender': 'Research editor <editor@research.example>', 'subject': 'Weekly premium research digest', 'text': text, 'received': 1, 'protected': [], 'bucket': 'ready', 'source': 'laya_cleanup'}
         cleanup.run.update(id='explicit-review', status='done', account=account)
         cleanup.messages = {previous['id']: previous}
         cleanup.intelligence.set_learning(account, True)

@@ -1,0 +1,78 @@
+{
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "embedding_revision": "fastembed-onnx-v1",
+  "max_messages": 50000,
+  "modes": {
+    "source": {
+      "version": "source_v1",
+      "neighbors": 20,
+      "threshold": 0.65,
+      "algorithm": "components",
+      "resolution": 0.8,
+      "min_cluster": 3,
+      "weights": {
+        "semantic": 0.1,
+        "sender": 0.2,
+        "domain": 0.7
+      }
+    },
+    "repetition": {
+      "version": "repetition_v2",
+      "neighbors": 20,
+      "threshold": 0.7,
+      "algorithm": "louvain",
+      "resolution": 1.0,
+      "min_cluster": 3,
+      "weights": {
+        "semantic": 0.4,
+        "template": 0.35,
+        "sender": 0.1,
+        "automation": 0.1,
+        "body": 0.05
+      },
+      "semantic_family": {
+        "minimum_cosine": 0.94,
+        "minimum_subject_overlap": 0.25
+      }
+    },
+    "purpose": {
+      "version": "purpose_v1",
+      "neighbors": 20,
+      "threshold": 0.67,
+      "algorithm": "louvain",
+      "resolution": 0.8,
+      "min_cluster": 3,
+      "weights": {
+        "semantic": 0.85,
+        "terms": 0.15
+      }
+    },
+    "attention": {
+      "version": "attention_v1",
+      "neighbors": 20,
+      "threshold": 0.67,
+      "algorithm": "louvain",
+      "resolution": 0.8,
+      "min_cluster": 3,
+      "weights": {
+        "semantic": 0.25,
+        "attention": 0.65,
+        "sender": 0.1
+      }
+    },
+    "retention": {
+      "version": "retention_v1",
+      "neighbors": 20,
+      "threshold": 0.62,
+      "algorithm": "louvain",
+      "resolution": 0.8,
+      "min_cluster": 3,
+      "weights": {
+        "semantic": 0.3,
+        "retention": 0.5,
+        "prior": 0.1,
+        "terms": 0.1
+      }
+    }
+  }
+}

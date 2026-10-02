@@ -8,9 +8,7 @@
   "minimum_macos_major": 14,
   "smoke_timeout_seconds": 180,
   "cleanup": {
-    "max_messages": 1000,
-    "promo_threshold": 0.85,
-    "keep_threshold": 0.15,
+    "max_messages": 5000,
     "gmail_concurrency": 4,
     "qwen_timeout_seconds": 120
   }

@@ -22,7 +22,7 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(self.memory.learning(self.account), {'enabled': False, 'count': 0})
         self.memory.set_learning(self.account, True)
         self.memory.capture(self.account, self.example, 'keep')
-        self.memory.capture(self.account, self.example, 'promotional')
+        self.memory.capture(self.account, self.example, 'cleanup')
         reopened = Intelligence(self.path)
         self.assertEqual(reopened.learning(self.account), {'enabled': True, 'count': 1})
         self.assertFalse(reopened.learning('other@example.com')['enabled'])
@@ -44,7 +44,7 @@ class MemoryTests(unittest.TestCase):
         self.memory.capture(self.account, self.example, 'keep')
         different = {**self.example, 'id': 'later', 'subject': 'Account password reset', 'text': 'Security verification login request'}
         self.assertEqual(self.memory.retrieve(self.account, different)['status'], 'none')
-        self.memory.capture(self.account, {**self.example, 'id': 'second'}, 'promotional')
+        self.memory.capture(self.account, {**self.example, 'id': 'second'}, 'cleanup')
         self.assertEqual(self.memory.retrieve(self.account, {**self.example, 'id': 'later'})['status'], 'conflict')
         self.memory.clear_learning(self.account)
         self.memory.capture(self.account, {**self.example, 'subject': 'Research digest useful information', 'text': ''}, 'keep')
@@ -93,7 +93,7 @@ class LearningIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_memory_triggers_high_laya_qwen_without_probabilities_change(self):
         await self.seed()
-        with patch('app.cleanup.review_qwen', AsyncMock(return_value={'decision': 'not_promotional', 'confidence': 'high', 'reason': 'Similar research digest was explicitly kept.'})) as qwen:
+        with patch('app.cleanup.review_qwen', AsyncMock(return_value={'decision': 'KEEP', 'confidence': 90, 'reason': 'Similar research digest was explicitly kept.'})) as qwen:
             message = await self.scan_email()
         self.assertEqual(message['bucket'], 'keep')
         self.assertEqual(message['source'], 'memory_qwen')
@@ -118,7 +118,7 @@ class LearningIntegrationTests(unittest.IsolatedAsyncioTestCase):
         with patch('app.cleanup.review_qwen', AsyncMock()) as qwen:
             message = await self.scan_email()
         qwen.assert_not_called()
-        self.assertEqual(message['source'], 'laya_high_promo')
+        self.assertEqual(message['source'], 'laya_cleanup')
 
 class EndpointTests(unittest.TestCase):
     def test_account_binding_confirmation_and_boundary(self):
@@ -152,7 +152,7 @@ class EndpointTests(unittest.TestCase):
             history.action_state(account, 'metadata-only', 'trashed')
             self.assertEqual(history.dashboard(account)['emails_reviewed'], 0)
             history.record_messages(account, [{'id': 'classified', 'bucket': 'keep'}])
-            history.mark(account, [('classified', 'promotional')])
+            history.mark(account, [('classified', 'cleanup')])
             self.assertEqual(history.dashboard(account)['kept'], 0)
 
     def test_learning_prompt_uses_preferences_schema_and_strips_links(self):
@@ -163,12 +163,12 @@ class EndpointTests(unittest.TestCase):
         def handler(request):
             import json
             captured.append(json.loads(request.content))
-            return httpx.Response(200, json={'message': {'content': '{"decision":"keep","confidence":"high","reason":"Matches a prior explicit Keep preference."}'}})
+            return httpx.Response(200, json={'message': {'content': '{"decision":"KEEP","confidence":90,"reason":"Matches a prior explicit Keep preference."}'}})
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         message = {'sender': 'editor@weekly.com', 'subject': 'Research digest', 'text': 'Research https://weekly.com/unsubscribe?secret=token', 'probabilities': distribution(.99)}
         with patch('app.cleanup.httpx.AsyncClient', return_value=client):
             result = asyncio.run(review_qwen(message, [{'sender': 'editor@weekly.com', 'subject': 'Research digest', 'text': 'Research', 'decision': 'keep'}]))
-        self.assertEqual(result['decision'], 'not_promotional')
-        self.assertEqual(captured[0]['format']['properties']['decision']['enum'], ['keep', 'trash_candidate', 'unsure'])
+        self.assertEqual(result['decision'], 'KEEP')
+        self.assertEqual(captured[0]['format']['properties']['decision']['enum'], ['CLEANUP', 'KEEP', 'NEEDS_REVIEW'])
         self.assertIn('untrusted', captured[0]['messages'][0]['content'])
         self.assertNotIn('secret=token', captured[0]['messages'][1]['content'])

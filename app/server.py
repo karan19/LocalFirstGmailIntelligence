@@ -1,4 +1,5 @@
 import asyncio
+import os
 import base64
 import hashlib
 import secrets
@@ -13,18 +14,24 @@ from .services import ROOT, SCOPE, Classifier, TokenStore, UserError, client_con
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 store = TokenStore()
+if os.environ.get('LOCAL_READONLY_PREVIEW')=='1':
+    store.write = lambda *_: None  # Preview refreshes do not change shared Keychain tokens.
 classifier = Classifier()
 session = secrets.token_urlsafe(32)
 pending = {}
 run = {'status': 'idle', 'completed': 0, 'total': 0, 'results': [], 'error': None}
 task = None
-ORIGIN = 'http://127.0.0.1:8765'
+PORT = int(os.environ.get('LOCAL_APP_PORT','8765'))
+if not 1024 <= PORT <= 65535:raise ValueError('Invalid local port')
+ORIGIN = f'http://127.0.0.1:{PORT}'
 
 
 @app.middleware('http')
 async def boundary(request: Request, call_next):
-    if request.headers.get('host') != '127.0.0.1:8765':
+    if request.headers.get('host') != f'127.0.0.1:{PORT}':
         return JSONResponse({'error': 'Invalid host'}, status_code=403)
+    if os.environ.get('LOCAL_READONLY_PREVIEW')=='1' and ((request.method!='GET' and any(word in request.url.path for word in ('/trash','/restore','/unsubscribe','/disconnect','/connect','/review'))) or request.url.path.startswith('/oauth/')):
+        return JSONResponse({'error':'This isolated preview cannot change Gmail or its connection. Use the main application for mailbox actions.'},status_code=403)
     if request.url.path.startswith('/api/'):
         if request.cookies.get('local_session') != session or (request.method != 'GET' and request.headers.get('origin') != ORIGIN):
             return JSONResponse({'error': 'Reload the local application to continue.'}, status_code=403)
@@ -47,7 +54,7 @@ async def user_error(request, exc):
 async def status():
     try:
         config = client_config()
-        saved = store.read(config['client_id'])
+        saved = await asyncio.to_thread(store.read, config['client_id'])
         return {'configured': True, 'connected': bool(saved), 'cleanup_permission': bool(saved and MODIFY_SCOPE in saved.get('scope', '').split())}
     except UserError as exc:
         return {'configured': False, 'connected': False, 'error': str(exc)}
@@ -99,7 +106,7 @@ async def callback(request: Request):
 async def analyze():
     try:
         config = client_config()
-        saved = store.read(config['client_id'])
+        saved = await asyncio.to_thread(store.read, config['client_id'])
         if not saved:
             raise UserError('Connect Gmail before starting the test.')
         tokens = await token_request({**config, 'grant_type': 'refresh_token', 'refresh_token': saved['refresh_token']})
@@ -150,6 +157,10 @@ from .cleanup import Cleanup, MODIFY_SCOPE
 cleanup_service = Cleanup(app, store, classifier, client_config, token_request, lambda: bool(task and not task.done()))
 from .subscriptions import Subscriptions
 subscription_service = Subscriptions(app, cleanup_service)
+from .explorer import Explorer
+explorer_service = Explorer(app, cleanup_service, subscription_service)
+subscription_busy = cleanup_service.external_busy
+cleanup_service.external_busy = lambda: subscription_busy() or explorer_service.busy()
 
 
 async def v4_account():
@@ -204,7 +215,7 @@ async def clear_learning(payload: ClearLearning):
 
 class SPA(StaticFiles):
     async def get_response(self, path, scope):
-        if path in ('', '.', 'connect', 'test', 'results', 'cleanup', 'subscriptions', 'history', 'dashboard'):
+        if path in ('', '.', 'connect', 'test', 'results', 'cleanup', 'subscriptions', 'history', 'dashboard', 'explorer'):
             path = 'index.html'
         return await super().get_response(path, scope)
 

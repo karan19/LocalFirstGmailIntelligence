@@ -256,10 +256,10 @@ class V3Tests(unittest.IsolatedAsyncioTestCase):
     async def test_backlog_matching_protected_archived_and_no_models(self):
         self.v3.run.update(id='scan',status='running',account=ACCOUNT,identity=IDENTITY)
         self.gmail.request.return_value={'messages':[{'id':'1'},{'id':'2'},{'id':'3'}]}
-        self.gmail.message.side_effect=[raw('1',labels=[]),raw('2',labels=['IMPORTANT']),raw('3',list_id='another.example.org')]
+        self.gmail.message.side_effect=[raw('1',labels=[]),raw('2',labels=['STARRED']),raw('3',list_id='another.example.org')]
         await self.v3.scan(self.gmail,record())
         self.assertEqual(set(self.v3.messages),{'1','2'})
-        self.assertEqual(self.v3.messages['2']['protected'],['IMPORTANT'])
+        self.assertEqual(self.v3.messages['2']['protected'],['STARRED'])
         self.cleanup.classifier.classify.assert_not_called()
         self.assertNotIn('text',self.v3.messages['1'])
 

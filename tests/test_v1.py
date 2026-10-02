@@ -47,17 +47,17 @@ class V1Tests(unittest.TestCase):
         classifier = Classifier()
         from unittest.mock import Mock
         classifier.agent = Mock()
-        classifier.agent.predict.return_value = {'answers': {'category': {'probabilities': dict(zip(CATEGORIES, [.1, .2, .7]))}}}
+        classifier.agent.predict.return_value = {'answers': {'category': {'probabilities': dict(zip(CATEGORIES, [.05, .9, .05]))}}}
         message = {'sender': 'sender', 'subject': 'subject', 'text': 'body', 'access_token': 'secret'}
         result = classifier.classify(message)
-        self.assertEqual(result['category'], 'Promotional')
+        self.assertEqual(result['category'], 'CLEANUP')
         self.assertNotIn('secret', classifier.agent.predict.call_args.args[0])
         classifier.agent.predict.return_value['answers']['category']['probabilities'][CATEGORIES[0]] = float('nan')
         with self.assertRaises(UserError):
             classifier.classify(message)
 
     def test_small_inbox_pipeline_keeps_body_out_of_results(self):
-        with patch('app.server.client_config', return_value={'client_id':'fixture','client_secret':'fixture'}), patch.object(server.store, 'read', return_value={'refresh_token':'secret'}), patch.object(server.store,'write'), patch('app.server.token_request', new=AsyncMock(return_value={'access_token':'secret'})), patch('app.server.fetch_messages',new=AsyncMock(return_value=[{'id':'a','sender':'x','subject':'y','received':1,'text':'private body'}])), patch.object(server.classifier,'classify',return_value={'category':'Informational','probabilities':dict(zip(CATEGORIES,[.1,.8,.1]))}):
+        with patch('app.server.client_config', return_value={'client_id':'fixture','client_secret':'fixture'}), patch.object(server.store, 'read', return_value={'refresh_token':'secret'}), patch.object(server.store,'write'), patch('app.server.token_request', new=AsyncMock(return_value={'access_token':'secret'})), patch('app.server.fetch_messages',new=AsyncMock(return_value=[{'id':'a','sender':'x','subject':'y','received':1,'text':'private body'}])), patch.object(server.classifier,'classify',return_value={'category':'NEEDS_REVIEW','probabilities':dict(zip(CATEGORIES,[.2,.2,.6]))}):
             server.run.update(results=[],completed=0)
             asyncio.run(server.analyze())
         self.assertEqual(server.run['status'],'done')

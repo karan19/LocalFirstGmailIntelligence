@@ -17,7 +17,7 @@ from app.cleanup import ScanOptions
 
 
 def distribution(p):
-    return {'Promotional': p, 'Informational': (1-p)/2, 'Action Required': (1-p)/2}
+    return {'CLEANUP': p, 'KEEP': 1-p, 'NEEDS_REVIEW': 0} if p <= .15 or p >= .85 else {'KEEP': .2, 'CLEANUP': .2, 'NEEDS_REVIEW': .6}
 
 
 def raw(i, labels=None):
@@ -25,16 +25,14 @@ def raw(i, labels=None):
 
 
 class RoutingTests(unittest.TestCase):
-    def test_thresholds_and_qwen_confidence(self):
-        self.assertEqual(route_result(distribution(.85)), ('ready', 'laya_high_promo'))
-        self.assertEqual(route_result(distribution(.15)), ('keep', 'laya_clear_keep'))
-        for p in (.151, .5, .849):
-            for confidence in ('medium', 'low'):
-                for decision in ('promotional', 'not_promotional', 'unsure'):
-                    self.assertEqual(route_result(distribution(p), {'decision': decision, 'confidence': confidence})[0], 'review')
-        self.assertEqual(route_result(distribution(.5), {'decision':'promotional','confidence':'high'}), ('ready', 'qwen_promo'))
-        self.assertEqual(route_result(distribution(.5), {'decision':'not_promotional','confidence':'high'}), ('keep', 'qwen_keep'))
-        self.assertEqual(route_result(distribution(.5), {'decision':'unsure','confidence':'high'})[0], 'review')
+    def test_explicit_decisions_not_confidence_bands(self):
+        self.assertEqual(route_result({'KEEP': .25, 'CLEANUP': .55, 'NEEDS_REVIEW': .2}), ('ready', 'laya_cleanup'))
+        self.assertEqual(route_result({'KEEP': .55, 'CLEANUP': .25, 'NEEDS_REVIEW': .2}), ('keep', 'laya_keep'))
+        self.assertEqual(route_result({'KEEP': .2, 'CLEANUP': .2, 'NEEDS_REVIEW': .6})[0], 'review')
+        for confidence in (30, 60, 90):
+            self.assertEqual(route_result(distribution(.5), {'decision': 'CLEANUP', 'confidence': confidence})[0], 'ready')
+            self.assertEqual(route_result(distribution(.5), {'decision': 'KEEP', 'confidence': confidence})[0], 'keep')
+            self.assertEqual(route_result(distribution(.5), {'decision': 'NEEDS_REVIEW', 'confidence': confidence})[0], 'review')
 
     def test_modify_oauth_and_request_boundary(self):
         with TestClient(server.app, base_url=server.ORIGIN) as client:
@@ -57,7 +55,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         self.store.read.return_value={'scope':MODIFY_SCOPE,'refresh_token':'refresh'}
         self.refresh=AsyncMock(return_value={'access_token':'access','scope':MODIFY_SCOPE})
         self.classifier=Mock()
-        self.classifier.classify.return_value={'probabilities':distribution(.9),'category':'Promotional'}
+        self.classifier.classify.return_value={'probabilities':distribution(.9),'category':'CLEANUP'}
         self.cleanup=Cleanup(FastAPI(),self.store,self.classifier,lambda:{'client_id':'id'},self.refresh,lambda:False)
         self.history_dir=tempfile.TemporaryDirectory()
         self.addCleanup(self.history_dir.cleanup)
@@ -69,7 +67,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
 
     def ready(self, ids=('1','2')):
         self.cleanup.run.update(id='run',status='done',account='test@example.com')
-        self.cleanup.messages={i:{'id':i,'sender':'sender','subject':'sale','text':'body','received':1,'protected':[],'bucket':'ready','source':'laya_high_promo','trash_status':None} for i in ids}
+        self.cleanup.messages={i:{'id':i,'sender':'sender','subject':'sale','text':'body','received':1,'protected':[],'bucket':'ready','source':'laya_cleanup','trash_status':None} for i in ids}
 
     async def test_readonly_must_reconnect(self):
         self.store.read.return_value={'scope':'https://www.googleapis.com/auth/gmail.readonly','refresh_token':'refresh'}
@@ -77,29 +75,30 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
             await self.cleanup.start()
         self.refresh.assert_not_called()
 
-    async def test_paginated_thousand_fetch_no_more(self):
-        pages=[{'messages':[{'id':str(i)} for i in range(1,501)],'nextPageToken':'next'}, {'messages':[{'id':str(i)} for i in range(501,1001)],'nextPageToken':'ignored'}]
+    async def test_paginated_five_thousand_fetch_no_more(self):
+        self.cleanup.options=ScanOptions(limit=5000)
+        pages=[{'messages':[{'id':str(i)} for i in range(n*500+1,(n+1)*500+1)],'nextPageToken':str(n+1)} for n in range(10)]
         async def request(method,path,params=None):
             if path=='profile': return {'emailAddress':'test@example.com'}
             self.assertEqual(method,'GET'); self.assertEqual(params['labelIds'],'INBOX');self.assertEqual(params['maxResults'],500)
-            if len(pages)==1:self.assertEqual(params['pageToken'],'next')
+            if len(pages)<10:self.assertEqual(params['pageToken'],str(10-len(pages)))
             return pages.pop(0)
         self.gmail.request.side_effect=request
         self.cleanup.run.update(id='run',status='running')
         await self.cleanup.scan(self.gmail)
         self.assertEqual(self.cleanup.run['status'],'done')
-        self.assertEqual(len(self.cleanup.messages),1000)
-        self.assertEqual(self.gmail.message.await_count,1000)
-        self.assertEqual(next(iter(self.cleanup.messages)),'1000')
-        self.assertEqual(self.classifier.classify.call_count,1000)
+        self.assertEqual(len(self.cleanup.messages),5000)
+        self.assertEqual(self.gmail.message.await_count,5000)
+        self.assertEqual(next(iter(self.cleanup.messages)),'5000')
+        self.assertEqual(self.classifier.classify.call_count,5000)
         response=await self.cleanup.results('run',limit=20)
-        self.assertEqual(response['total'],1000); self.assertEqual(len(response['items']),20)
+        self.assertEqual(response['total'],5000); self.assertEqual(len(response['items']),20)
         self.assertNotIn('text',response['items'][0])
 
     async def test_protection_qwen_failure_and_partial_fetch(self):
         self.gmail.request.side_effect=[{'emailAddress':'test@example.com'},{'messages':[{'id':str(i)} for i in range(1,5)]}]
         self.gmail.message.side_effect=[raw(1,['INBOX','STARRED']),raw(2),UserError('missing'),raw(4,['SPAM'])]
-        self.classifier.classify.return_value={'category':'Informational','probabilities':distribution(.5)}
+        self.classifier.classify.return_value={'category':'NEEDS_REVIEW','probabilities':distribution(.5)}
         self.cleanup.run.update(id='run',status='running')
         with patch('app.cleanup.review_qwen',AsyncMock(side_effect=ValueError('invalid'))) as qwen:
             await self.cleanup.scan(self.gmail)
@@ -107,7 +106,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.cleanup.messages['1']['bucket'],'keep')
         self.assertEqual(self.cleanup.messages['2']['source'],'qwen_error')
         self.assertEqual(qwen.await_count,1)
-        with self.assertRaises(UserError):await self.cleanup.decide('run','1',Decision(decision='promotional'))
+        with self.assertRaises(UserError):await self.cleanup.decide('run','1',Decision(decision='cleanup'))
 
     async def test_selection_confirmation_and_protection_recheck(self):
         self.ready()
@@ -116,7 +115,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         prepared=await self.cleanup.prepare('run',Selection(ids=['1']))
         with self.assertRaises(UserError):await self.cleanup.trash('run',ConfirmedSelection(ids=['2'],confirmation=prepared['confirmation']))
         prepared=await self.cleanup.prepare('run',Selection(ids=['1']))
-        self.gmail.message.return_value=raw(1,['INBOX','IMPORTANT']);self.gmail.message.side_effect=None
+        self.gmail.message.return_value=raw(1,['INBOX','STARRED']);self.gmail.message.side_effect=None
         with patch.object(self.cleanup,'authorize',AsyncMock(return_value=self.gmail)):
             result=await self.cleanup.trash('run',ConfirmedSelection(ids=['1'],confirmation=prepared['confirmation']))
         self.assertEqual(result['failed'],1);self.assertEqual(self.cleanup.messages['1']['bucket'],'keep')
@@ -148,7 +147,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
             await self.cleanup.decide('run','1',Decision(decision='keep'))
             self.assertFalse(self.cleanup.feedback_path.exists())
             await self.cleanup.set_feedback(FeedbackSetting(enabled=True))
-            await self.cleanup.decide('run','1',Decision(decision='promotional'))
+            await self.cleanup.decide('run','1',Decision(decision='cleanup'))
             self.assertEqual(json.loads(self.cleanup.feedback_path.read_text())['text'],'body')
             self.assertEqual(self.cleanup.feedback_path.stat().st_mode & 0o777,0o600)
             self.assertEqual(self.cleanup.feedback_path.parent.stat().st_mode & 0o777,0o700)
@@ -237,7 +236,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         self.gmail.request.side_effect=[{'emailAddress':'test@example.com'}, {'messages':[{'id':'1'},{'id':'2'}]}]
         def classify(message):
             self.cleanup.stop_requested=True
-            return {'probabilities':distribution(.9),'category':'Promotional'}
+            return {'probabilities':distribution(.9),'category':'CLEANUP'}
         self.classifier.classify.side_effect=classify
         self.cleanup.run.update(id='run',status='running')
         await self.cleanup.scan(self.gmail)
@@ -252,10 +251,10 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_stop_qwen_retains_pending_ambiguity(self):
         self.gmail.request.side_effect=[{'emailAddress':'test@example.com'}, {'messages':[{'id':'1'},{'id':'2'}]}]
-        self.classifier.classify.return_value={'probabilities':distribution(.5),'category':'Informational'}
+        self.classifier.classify.return_value={'probabilities':distribution(.5),'category':'NEEDS_REVIEW'}
         async def review(message):
             await self.cleanup.stop('run')
-            return {'decision':'promotional','confidence':'high','reason':'Sale'}
+            return {'decision':'CLEANUP','confidence':90,'reason':'Sale'}
         self.cleanup.run.update(id='run',status='running')
         with patch('app.cleanup.review_qwen',side_effect=review):await self.cleanup.scan(self.gmail)
         self.assertEqual(self.cleanup.run['status'],'stopped')
@@ -292,11 +291,12 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
 
     def test_scan_options_reject_invalid_limits_and_categories(self):
         from pydantic import ValidationError
-        for payload in ({'limit':0},{'limit':1001},{'limit':1.5},{'categories':['arbitrary']},{'categories':['all']},{'read_status':'opened'}):
+        self.assertEqual(ScanOptions(limit=5000).limit,5000)
+        for payload in ({'limit':0},{'limit':5001},{'limit':1.5},{'categories':['arbitrary']},{'categories':['all']},{'read_status':'opened'}):
             with self.assertRaises(ValidationError):ScanOptions(**payload)
 
     async def test_qwen_strict_json_local_only(self):
-        answer={'decision':'promotional','confidence':'high','reason':'A sale offer.'}
+        answer={'decision':'CLEANUP','confidence':90,'reason':'A sale offer.'}
         captured=[]
         def handle(request):
             self.assertEqual(request.url.host,'127.0.0.1')
@@ -306,7 +306,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         with patch('app.cleanup.httpx.AsyncClient',return_value=client):
             result=await review_qwen({'sender':'shop','subject':'sale','text':'buy','token':'SECRET'})
         self.assertEqual(result,answer);self.assertNotIn('SECRET',json.dumps(captured))
-        answer['confidence']=.95
+        answer['confidence']=101
         client=httpx.AsyncClient(transport=httpx.MockTransport(handle))
         with patch('app.cleanup.httpx.AsyncClient',return_value=client):
             with self.assertRaises(ValueError):await review_qwen({'sender':'s','subject':'s','text':'s'})
