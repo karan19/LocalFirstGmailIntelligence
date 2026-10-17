@@ -213,8 +213,10 @@ Do not rely on Trash or action history as a complete mailbox backup.
 
 ## Optional Winnow classifier
 
-Laya is the default working path. Winnow needs a separate native runtime, Xcode
-command-line tools, CMake and OpenSSL. Review the upstream model terms first:
+Laya is the default working path. **Winnow runs locally and must be started
+separately: `./start.sh` does not start Winnow.** It needs a separate native
+runtime, Xcode command-line tools, CMake and OpenSSL. Review the upstream model
+terms first:
 
 ```sh
 mkdir -p .local
@@ -228,7 +230,9 @@ python3.13 .local/winnow-runtime/scripts/setup.py --text-only --jobs 8
 Keep it running at `127.0.0.1:8091`. It uses an 8,192-token context and the native
 Apple Silicon text-only profile. The app reports Winnow as unavailable until its
 runtime is healthy. Laya and Winnow keep separate recommendations over the same
-fetched snapshot. Model scores are uncalibrated, not measured deletion safety.
+fetched snapshot. **Winnow scores are uncalibrated model judgments—not measured
+probabilities that deleting an email is safe.** A Cleanup recommendation never
+authorizes Trash; you must select messages and explicitly confirm the action.
 
 ## Development and validation
 

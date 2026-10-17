@@ -184,6 +184,23 @@ user wants it. Keep optional Winnow until requested. Describe model scores as
 uncalibrated recommendations, not measured safe-delete probabilities. No cloud
 inference, automatic deletion, or full-mailbox accuracy claim belongs in this path.
 
+## Optional Winnow: only when requested
+
+Explain that Winnow runs entirely locally but needs its **own running server**.
+`./start.sh` starts the Gmail app only; it does not install or start Winnow.
+Follow README.md's **Optional Winnow classifier** section for the pinned runtime
+and model setup, then run `./scripts/run_winnow.sh` in a separate Terminal and
+keep it open. The default Winnow endpoint is `http://127.0.0.1:8091`.
+Verify its `/health` endpoint and the app's classifier readiness before asking
+the user to choose **Classify with Winnow**. A working app or Laya test does not
+prove Winnow is ready. Never substitute a hosted provider if its server is absent.
+
+State explicitly: **Winnow's scores are uncalibrated model judgments, not measured
+probabilities that deleting an email is safe.** Its Cleanup score below 20% routes
+to Keep, above 60% to Cleanup candidates, and 20%–60% inclusive to local Qwen
+review. Model/server failures remain reviewable. Starred protection, user selection
+and explicit confirmation still govern Trash; classification is not authorization.
+
 ## Mailbox and development boundaries
 
 - Setup/read-only testing never authorizes Trash, Restore, unsubscribe, or other
