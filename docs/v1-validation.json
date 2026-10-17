@@ -26,5 +26,5 @@
     "Public OAuth verification and production onboarding"
   ],
   "live_http": "Welcome URL returns HTTP 200 after fixing SPA root-path routing",
-  "live_gmail": "User confirmed OAuth consent, fetching 10 real Inbox emails, and displaying Laya probabilities successfully on September 30, 2026."
+  "status_note": "Historical milestone record; current release status is in docs/release-validation.md."
 }

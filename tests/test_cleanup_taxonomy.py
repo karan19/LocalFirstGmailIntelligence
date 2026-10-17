@@ -103,16 +103,21 @@ class DurableAmbiguityTests(unittest.TestCase):
 
 class ExplicitCleanupPreferenceTests(unittest.IsolatedAsyncioTestCase):
     from tests.test_v2 import CleanupTests as _fixture
-    setUp = _fixture.setUp
+    def setUp(self):
+        from unittest.mock import patch
+        self._fixture.setUp(self)
+        preference = patch('app.services.EXPLICIT_CLEANUP_SUBJECTS', ['Synthetic verification code'])
+        preference.start()
+        self.addCleanup(preference.stop)
 
-    async def test_amex_code_cannot_be_kept_by_models_or_memory(self):
+    async def test_configured_subject_preference_preserves_protection(self):
         from unittest.mock import AsyncMock, patch
         from tests.test_v2 import raw, distribution
         self.classifier.classify.return_value = {'probabilities': distribution(.1), 'decision': 'KEEP', 'category': 'KEEP'}
         self.gmail.request.side_effect = [{'emailAddress': 'test@example.com'}, {'messages': [{'id': '1'}, {'id': '2'}]}]
         def message(i, metadata=False):
             item = raw(i, ['INBOX', 'STARRED'] if i == '2' else ['INBOX'])
-            item['payload']['headers'] = [{'name': 'Subject', 'value': 'Your American Express one-time verification code'}]
+            item['payload']['headers'] = [{'name': 'Subject', 'value': 'Synthetic verification code'}]
             return item
         self.gmail.message.side_effect = message
         self.cleanup.run.update(id='test', status='running')
@@ -127,6 +132,12 @@ class ExplicitCleanupPreferenceTests(unittest.IsolatedAsyncioTestCase):
 
     def test_does_not_match_statements_or_sender_only(self):
         from app.services import explicit_cleanup_preference
-        self.assertFalse(explicit_cleanup_preference({'sender': 'American Express', 'subject': 'Your monthly statement'}))
-        self.assertFalse(explicit_cleanup_preference({'subject': 'Statement mentioning Your American Express one-time verification code'}))
-        self.assertTrue(explicit_cleanup_preference({'subject': ' YOUR AMERICAN EXPRESS ONE-TIME VERIFICATION CODE! '}))
+        self.assertFalse(explicit_cleanup_preference({'sender': 'Synthetic sender', 'subject': 'Your monthly statement'}))
+        self.assertFalse(explicit_cleanup_preference({'subject': 'Statement mentioning Synthetic verification code'}))
+        self.assertTrue(explicit_cleanup_preference({'subject': ' SYNTHETIC VERIFICATION CODE! '}))
+
+    def test_default_install_has_no_personal_subject_override(self):
+        from unittest.mock import patch
+        from app.services import explicit_cleanup_preference
+        with patch('app.services.EXPLICIT_CLEANUP_SUBJECTS', []):
+            self.assertFalse(explicit_cleanup_preference({'subject': 'Synthetic verification code'}))

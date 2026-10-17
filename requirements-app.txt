@@ -1,0 +1,5 @@
+# Complete browser application and model runtime, including Mailbox Explorer.
+# Known-compatible dependency set from a fresh Apple Silicon Python 3.13 install.
+-c constraints-macos-py313.txt
+-r requirements.txt
+-r requirements-v5.txt

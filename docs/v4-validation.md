@@ -1,5 +1,8 @@
 # V4 validation — Dashboard and correction memory
 
+> Historical milestone notes. Current setup and limitations: [release validation](release-validation.md).
+
+
 Validated locally on September 30, 2026, against the V3 baseline `b0ac76e`.
 
 ## Automated checks
@@ -73,10 +76,4 @@ email will get the same model recommendation.
 
 No new real unsubscribe, Trash, Restore, or production correction was performed
 by the implementation validation workflow. Existing mutation safety was verified by the regression suite.
-The local server remains available on port 8765. The user subsequently tested the local app. Read-only inspection confirmed three
-completed classification runs, learning enabled, and one saved correction. This
-confirms capture, but does not claim a later real Gmail email used that example.
-
-The user authorized publication of the V4 notebook report and committing/pushing
-the implementation on September 30, 2026. Private local databases, credentials,
-and validation screenshots are excluded from the source commit.
+Maintainer-specific session and publishing details are omitted from this public record.

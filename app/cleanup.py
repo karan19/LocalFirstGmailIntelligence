@@ -446,7 +446,7 @@ class Cleanup:
             except Exception:
                 message.update(bucket='review', source='laya_error', reason='Laya could not classify this message. Review it manually.')
             if preference:
-                message.update(bucket='ready', source='explicit_cleanup_preference', reason='Your stated preference: this one-time verification code has no long-term record value.')
+                message.update(bucket='ready', source='explicit_cleanup_preference', reason='Your configured subject preference selects this email for cleanup review.')
             if message['protected']:
                 message.update(bucket='keep', source='protected')
             self.run['laya_completed'] += 1

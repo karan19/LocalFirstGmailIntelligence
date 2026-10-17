@@ -11,5 +11,6 @@
     "max_messages": 5000,
     "gmail_concurrency": 4,
     "qwen_timeout_seconds": 120
-  }
+  },
+  "cleanup_subject_preferences": []
 }

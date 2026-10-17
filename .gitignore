@@ -6,3 +6,14 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+google-client.json
+client_secret*.json
+*api-key*.txt

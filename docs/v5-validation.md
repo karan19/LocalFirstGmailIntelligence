@@ -1,11 +1,10 @@
 # V5 implementation and validation
 
-Implemented in an isolated managed worktree to preserve the main application's
-active runs, original data, frontend build and model processes. The original
-service on 8765 was not restarted. V5's read-only exploration preview runs on
-8766 with its own environment, index and embedding-model cache. Cleanup handoff
-is implemented but disabled in that preview; its integration is tested with
-mock Gmail/model adapters. No live emails were trashed or unsubscribed for V5.
+> Historical milestone notes. Current setup and limitations: [release validation](release-validation.md).
+
+
+Explorer is part of the main application. This is a historical implementation
+record; see [current release validation](release-validation.md) for release scope.
 
 ## Implemented
 
@@ -60,10 +59,7 @@ above describe the initial sparse-graph benchmark.
 - Automated-population hints are descriptive; cleanup suitability is judged
   only in the existing classifier and explicit review flow.
 - Real 20,000-message ingestion and live cleanup/restore acceptance remain for
-  user testing. V5 source and the later Starred-only protection changes have been consolidated
-  into the main checkout. All 105 tests and the frontend build pass. Changes
-  remain uncommitted and unpushed. The running main service and its frontend
-  build were left untouched; the isolated preview still blocks mailbox changes.
+  user testing. Historical test counts below describe their individual milestones.
 
 
 ## Repetition v2 — campaign wording
@@ -77,9 +73,7 @@ never establishes repetition. The mode is versioned `repetition_v2`, preventing
 reuse of the old view cache. No embedding re-generation or Gmail ingestion is
 needed to rebuild a view over the indexed corpus.
 
-Validation against the existing 100 Inbox Promotions records joined the missed
-NYT Anniversary Sale email to its three counterparts (cosine similarity 0.989).
-The resulting view has two groups (NYT:4, Bath & Body Works:3) and 93 outliers.
+Historical targeted testing improved grouping of campaign wording variants.
 This is a targeted grouping improvement, not evidence that every unclustered
 promotion is unique or should be kept. Regression fixtures cover wording changes
 and unrelated content from the same sender. All 106 tests pass. Additional
@@ -110,7 +104,4 @@ uncertain outliers, action-cue limits, retention result cache invalidation,
 account isolation, and reuse of the index without Gmail/embedding/classifier
 calls. Existing protected cleanup/handoff/restore tests continue to pass.
 
-The new views are ready in main and validated. Activation is pending a safe
-service restart because a new Laya cleanup run started during deployment checks.
-The frontend consults backend capabilities and hides views the running backend
-has not loaded, preserving current testing.
+All views are included in main. Activation follows the normal application launch.

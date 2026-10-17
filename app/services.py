@@ -137,10 +137,17 @@ DECISION_CRITERIA = {
     "NEEDS_REVIEW": "Plausible important loss, but current importance or retention value is genuinely unclear."}
 
 
+EXPLICIT_CLEANUP_SUBJECTS = json.loads((ROOT / 'config.json').read_text()).get('cleanup_subject_preferences', [])
+if not isinstance(EXPLICIT_CLEANUP_SUBJECTS, list) or any(not isinstance(v, str) or not v.strip() for v in EXPLICIT_CLEANUP_SUBJECTS):
+    raise ValueError('cleanup_subject_preferences must be a list of nonempty subjects')
+
+
 def explicit_cleanup_preference(message):
-    """User-declared transient type, not an inferred sender rule or Gmail action."""
-    subject = re.sub(r'\s+', ' ', str(message.get('subject', ''))).strip().casefold().rstrip('.!')
-    return subject == 'your american express one-time verification code'
+    """Explicit local subject preferences; empty by default for new installations."""
+    def normalize_subject(value):
+        return re.sub(r'\s+', ' ', str(value)).strip().casefold().rstrip('.!')
+    subject = normalize_subject(message.get('subject', ''))
+    return bool(subject) and any(subject == normalize_subject(value) for value in EXPLICIT_CLEANUP_SUBJECTS)
 
 
 def value_decision(probabilities, basis=None):

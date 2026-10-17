@@ -16,7 +16,7 @@
     {
       "name": "Python environment",
       "passed": true,
-      "detail": "/Users/karan/workspace/LocalFirstGmailIntelligence/.venv/bin/python (3.13.12)",
+      "detail": "Project .venv interpreter (Python 3.13.12)",
       "action": "Run ./setup.sh using native Python 3.11 or newer."
     },
     {
@@ -34,7 +34,7 @@
     {
       "name": "Laya weights",
       "passed": true,
-      "detail": "/Users/karan/workspace/LocalFirstGmailIntelligence/.models/laya",
+      "detail": "Project .models/laya (verified manifest)",
       "action": "Run ./setup.sh and confirm the Laya model download."
     },
     {

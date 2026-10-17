@@ -1,5 +1,8 @@
 # V2 validation — September 30, 2026
 
+> Historical milestone notes. Current setup and limitations: [release validation](release-validation.md).
+
+
 Implemented from the notebook's **V2 — 1,000 Email Cleanup + Laya/Qwen Review**
 and **Questions on V2** answers.
 
