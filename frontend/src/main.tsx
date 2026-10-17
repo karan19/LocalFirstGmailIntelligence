@@ -8,6 +8,7 @@ import Cleanup from './Cleanup'
 import Explorer from './Explorer'
 import Dashboard from './Dashboard'
 import Subscriptions from './Subscriptions'
+import Snapshot from './Snapshot'
 
 type Result = { id:string; sender:string; subject:string; received:number; category:string; probabilities:Record<string,number> }
 type Run = {status:string; completed:number; total:number; results:Result[]; error:string|null}
@@ -37,4 +38,4 @@ function App(){
  {error&&<div role="alert" className="mx-auto mt-4 max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm"><p className="flex gap-3"><CircleAlert size={18} className="shrink-0"/>{error}</p>{route==='/test'&&<Button variant="outline" className="mt-4" onClick={()=>{setError('');go('/connect')}}>Reconnect or retry</Button>}</div>}
  </motion.div></main><footer className="mx-auto flex max-w-6xl justify-between border-t border-stone-200 px-6 py-5 text-xs text-stone-400"><span>Local-first Gmail Intelligence</span><span className="flex items-center gap-2"><ShieldCheck size={14}/> Private by design</span></footer></div>
 }
-createRoot(document.getElementById('root')!).render(<App/> )
+createRoot(document.getElementById('root')!).render(location.port==='8766'?<Snapshot/>:<App/> )

@@ -1,0 +1,2 @@
+spacy>=3.8,<3.9
+# Also install the compatible local model: python -m spacy download en_core_web_sm

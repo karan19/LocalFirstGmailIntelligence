@@ -1,5 +1,10 @@
 # Local-first Gmail Intelligence
 
+**Experimental snapshot:** this branch preserves the Updates/Jev experiment.
+Use the main branch for the public alpha. The experiment has a separate Updates
+download UI and private service. See [snapshot setup and isolation prerequisite](docs/snapshot.md).
+Its launcher does not change the main application's saved authorization or runs.
+
 V3 adds subscription discovery, explicitly confirmed unsubscribe, historical
 cleanup, and durable action history with Restore. V2's local review of up to
 5,000 Inbox emails and confirmed Trash actions remains available.

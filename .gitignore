@@ -6,3 +6,6 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+
+# Local test/session artifact; never publish runtime data.
+:memory:.ses
